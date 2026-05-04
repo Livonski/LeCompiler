@@ -39,6 +39,8 @@ typedef struct {
 int leAddVariable(le_scope* scope, const char* name);
 int leFindVariable(le_scope* scope, const char* name);
 
+void leGenerateExpression(FILE *out, le_parser *parser, le_scope *scope);
+
 int main(int argc, char** argv){
 
     if (argc < 2) LE_ERROR_EXIT(1, "Usage: LeLanguage.exe <file>");
@@ -71,13 +73,6 @@ int main(int argc, char** argv){
     
     fclose(source);
 
-    //printing parsed tokens
-    le_token tok;
-    while(leGetNext(&parser, &tok) == 0){       
-        printf("Token[%d], tokenType[%d], name[%s]\n", tok.ID, tok.tokenType, tok.name);
-    }
-    parser.currentToken = 0;
-
     //assembly generation
     //for now we only expect that program will contain return [number]
     //any other code will be treated as error
@@ -102,44 +97,26 @@ int main(int argc, char** argv){
 
     le_token curr;
     le_token next;
-    while(leGetNext(&parser, &curr) == 0){       
+    while(leGetNext(&parser, &curr) == 0){    
+        //printf("-Token[%d], tokenType[%d], name[%s]\n", curr.ID, curr.tokenType, curr.name);   
         switch(curr.tokenType){
             case LE_TOKEN_TYPE_NONE:
                 char *varName = curr.name;
 
                 LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_EQUALS);
                 
-                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_NUMBER);
-                int value = next.numberValue;
+                leGenerateExpression(out, &parser, &scope);
                 
                 LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
 
                 int offset = leAddVariable(&scope, varName);
-                fprintf(out, " mov dword [rsp + %Xh], %d\n", offset, value);
+                fprintf(out, " mov dword [rsp + %Xh], eax\n", offset);
             break;
 
             case LE_TOKEN_TYPE_KEYWORD_RETURN:
-                leGetNext(&parser, &next);
-                switch (next.tokenType){
-                case LE_TOKEN_TYPE_NUMBER:
-                    int returnCode = next.numberValue;
-                    LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
-                    fprintf(out, " sub rsp, 28h\n");
-                    fprintf(out, " mov ecx, %d\n", returnCode);
-                    break;
-                case LE_TOKEN_TYPE_NONE:
-                    int offset = leFindVariable(&scope, next.name);
-                    if(offset < 0){
-                        LE_ERROR_EXIT(11, "unknown variable");
-                    }
-                    LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
-
-                    fprintf(out, " mov ecx, dword [rsp + %Xh]\n", offset);
-                    break;
-                default:
-                    LE_ERROR_EXIT(3, "unexpected token");
-                    break;
-                }
+                leGenerateExpression(out, &parser, &scope);
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
+                fprintf(out, " mov ecx, eax\n");
                 fprintf(out, " call [ExitProcess]\n");
                 break;
 

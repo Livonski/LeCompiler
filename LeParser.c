@@ -102,6 +102,7 @@ int leGetNext(le_parser *parser, le_token *result){
     if(parser->currentToken < parser->numTokens){
         *result = parser->tokens[parser->currentToken];
         parser->currentToken++;
+        printf("g-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -121,6 +122,7 @@ int leGetAndExpectNext(le_parser *parser, le_token *result, int excpected){
 
     if(token.tokenType == excpected && token.ID != -1){
         *result = token;
+        printf("ge-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -137,6 +139,7 @@ int leGetAndExpectNext(le_parser *parser, le_token *result, int excpected){
 int lePeekNext(le_parser *parser, le_token *result){
     if(parser->currentToken < parser->numTokens){
         *result = parser->tokens[parser->currentToken];
+        printf("p-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
