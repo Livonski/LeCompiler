@@ -85,11 +85,36 @@ int main(int argc, char** argv){
     }
 
     fprintf(out, "format PE64 console\n"); 
-    fprintf(out, "entry main\n\n"); 
+    fprintf(out, "entry _start\n\n"); 
 
     fprintf(out, "section '.text' code readable executable\n\n"); 
+    //runtime stuff
+    fprintf(out, "\n");
+    fprintf(out, "_start:\n");
+    fprintf(out, "    sub rsp, 48h\n\n");
+    fprintf(out, "    call le_main\n\n");
+    
+    fprintf(out, "    mov [return_code], eax\n\n");
+    fprintf(out, "    add eax, '0'\n");
+    fprintf(out, "    mov [return_digit], al\n\n");
 
-    fprintf(out, "main:\n"); 
+    fprintf(out, "    mov ecx, -11\n");
+    fprintf(out, "    call [GetStdHandle]\n");
+    fprintf(out, "    mov [stdout_handle], rax\n\n");
+
+    fprintf(out, "    mov rcx, [stdout_handle]\n");
+    fprintf(out, "    lea rdx, [exit_message]\n");
+    fprintf(out, "    mov r8d, exit_message_len\n");
+    fprintf(out, "    lea r9, [written]\n");
+    fprintf(out, "    mov qword [rsp + 20h], 0\n");
+    fprintf(out, "    call [WriteConsoleA]\n");
+
+    fprintf(out, "    mov ecx, [return_code]\n");
+    fprintf(out, "    call [ExitProcess]\n\n");
+
+    //program itself
+    fprintf(out, "le_main:\n"); 
+    fprintf(out, "    sub rsp, 108h\n"); 
 
     le_scope scope;
     scope.variableCount = 0;
@@ -110,14 +135,14 @@ int main(int argc, char** argv){
                 LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
 
                 int offset = leAddVariable(&scope, varName);
-                fprintf(out, " mov dword [rsp + %Xh], eax\n", offset);
+                fprintf(out, "    mov dword [rsp + %Xh], eax\n", offset);
             break;
 
             case LE_TOKEN_TYPE_KEYWORD_RETURN:
                 leGenerateExpression(out, &parser, &scope);
                 LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
-                fprintf(out, " mov ecx, eax\n");
-                fprintf(out, " call [ExitProcess]\n");
+                fprintf(out, "    add rsp, 108h\n");
+                fprintf(out, "    ret\n");
                 break;
 
             default:
@@ -126,6 +151,17 @@ int main(int argc, char** argv){
         }
     }
 
+    fprintf(out, "section '.data' data readable writeable\n\n");
+
+    fprintf(out, "exit_message db 'program exited with return code '\n");
+    fprintf(out, "return_digit db '0'\n");
+    fprintf(out, "db 13, 10\n");
+    fprintf(out, "exit_message_len = $ - exit_message\n\n");
+
+    fprintf(out, "return_code dd 0\n");
+    fprintf(out, "stdout_handle dq 0\n");
+    fprintf(out, "written dd 0\n\n");
+
     fprintf(out, "section '.idata' import data readable writeable\n\n");
 
     fprintf(out, "dd 0, 0, 0, RVA kernel32_name, RVA kernel32_table\n"); 
@@ -133,14 +169,24 @@ int main(int argc, char** argv){
 
     fprintf(out, "kernel32_table:\n"); 
     fprintf(out, " ExitProcess dq RVA _ExitProcess\n"); 
+    fprintf(out, " GetStdHandle dq RVA _GetStdHandle\n"); 
+    fprintf(out, " WriteConsoleA dq RVA _WriteConsoleA\n"); 
     fprintf(out, " dq 0\n\n"); 
 
     fprintf(out, "kernel32_name db 'kernel32.dll', 0\n\n"); 
     
     fprintf(out, "_ExitProcess:\n"); 
     fprintf(out, " dw 0\n"); 
-    fprintf(out, " db 'ExitProcess', 0\n"); 
+    fprintf(out, " db 'ExitProcess', 0\n\n"); 
     
+    fprintf(out, "_GetStdHandle:\n"); 
+    fprintf(out, " dw 0\n"); 
+    fprintf(out, " db 'GetStdHandle', 0\n\n"); 
+
+    fprintf(out, "_WriteConsoleA:\n"); 
+    fprintf(out, " dw 0\n"); 
+    fprintf(out, " db 'WriteConsoleA', 0\n\n"); 
+
     fclose(out);
 
     printf("Generated %s\n", asmFile);
@@ -193,7 +239,7 @@ void leGenerateTerm(FILE *out, le_parser *parser, le_scope *scope){
     }
 
     if(tok.tokenType == LE_TOKEN_TYPE_NUMBER){
-        fprintf(out, " mov eax, %d\n", tok.numberValue);
+        fprintf(out, "    mov eax, %d\n", tok.numberValue);
     }
     else if(tok.tokenType == LE_TOKEN_TYPE_NONE){
         int offset = leFindVariable(scope, tok.name);
@@ -202,7 +248,7 @@ void leGenerateTerm(FILE *out, le_parser *parser, le_scope *scope){
             LE_ERROR_EXIT(21, "unknown variable");
         }
 
-        fprintf(out, " mov eax, dword [rsp + %Xh]\n", offset);
+        fprintf(out, "    mov eax, dword [rsp + %Xh]\n", offset);
     }
     else{
         LE_ERROR_EXIT(22, "expected number or variable");
@@ -217,7 +263,7 @@ void leGenerateTermToEbx(FILE* out, le_parser* parser, le_scope* scope){
     }
 
     if(tok.tokenType == LE_TOKEN_TYPE_NUMBER){
-        fprintf(out, " mov ebx, %d\n", tok.numberValue);
+        fprintf(out, "    mov ebx, %d\n", tok.numberValue);
     }
     else if(tok.tokenType == LE_TOKEN_TYPE_NONE){
         int offset = leFindVariable(scope, tok.name);
@@ -226,7 +272,7 @@ void leGenerateTermToEbx(FILE* out, le_parser* parser, le_scope* scope){
             LE_ERROR_EXIT(24, "unknown variable");
         }
 
-        fprintf(out, " mov ebx, dword [rsp + %Xh]\n", offset);
+        fprintf(out, "    mov ebx, dword [rsp + %Xh]\n", offset);
     }
     else{
         LE_ERROR_EXIT(25, "expected number or variable");
@@ -248,11 +294,11 @@ void leGenerateExpression(FILE *out, le_parser *parser, le_scope *scope){
 
         if(tok.tokenType == LE_TOKEN_TYPE_PLUS){
             leGenerateTermToEbx(out, parser, scope);
-            fprintf(out, " add eax, ebx\n");
+            fprintf(out, "    add eax, ebx\n");
         }
         else if(tok.tokenType == LE_TOKEN_TYPE_MINUS){
             leGenerateTermToEbx(out, parser, scope);
-            fprintf(out, " sub eax, ebx\n");
+            fprintf(out, "    sub eax, ebx\n");
         }
     }
 }
