@@ -1,3 +1,16 @@
-a = 1;
-b = 2;
-return a + b;
+printChar ( 72 );
+printChar ( 101 );
+printChar ( 108 );
+printChar ( 108 );
+printChar ( 111 );
+
+printChar ( 87 );
+printChar ( 111 );
+printChar ( 114 );
+printChar ( 108 );
+printChar ( 100 );
+printChar ( 33 ); 
+
+printChar ( 10 ); 
+
+return 1;

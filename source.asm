@@ -7,16 +7,16 @@ section '.text' code readable executable
 _start:
     sub rsp, 48h
 
+    mov ecx, -11
+    call [GetStdHandle]
+    mov [stdout_handle], rax
+
     call le_main
 
     mov [return_code], eax
 
     add eax, '0'
     mov [return_digit], al
-
-    mov ecx, -11
-    call [GetStdHandle]
-    mov [stdout_handle], rax
 
     mov rcx, [stdout_handle]
     lea rdx, [exit_message]
@@ -29,13 +29,127 @@ _start:
 
 le_main:
     sub rsp, 108h
+    mov eax, 72
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 101
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 108
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 108
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 111
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 87
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 111
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 114
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 108
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 100
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 33
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 10
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
     mov eax, 1
-    mov dword [rsp + 20h], eax
-    mov eax, 2
-    mov dword [rsp + 24h], eax
-    mov eax, dword [rsp + 20h]
-    mov ebx, dword [rsp + 24h]
-    add eax, ebx
     add rsp, 108h
     ret
 section '.data' data readable writeable
@@ -47,6 +161,7 @@ exit_message_len = $ - exit_message
 
 return_code dd 0
 stdout_handle dq 0
+char_buffer db 0
 written dd 0
 
 section '.idata' import data readable writeable

@@ -92,15 +92,17 @@ int main(int argc, char** argv){
     fprintf(out, "\n");
     fprintf(out, "_start:\n");
     fprintf(out, "    sub rsp, 48h\n\n");
-    fprintf(out, "    call le_main\n\n");
-    
-    fprintf(out, "    mov [return_code], eax\n\n");
-    fprintf(out, "    add eax, '0'\n");
-    fprintf(out, "    mov [return_digit], al\n\n");
 
     fprintf(out, "    mov ecx, -11\n");
     fprintf(out, "    call [GetStdHandle]\n");
     fprintf(out, "    mov [stdout_handle], rax\n\n");
+
+    fprintf(out, "    call le_main\n\n");
+    
+    fprintf(out, "    mov [return_code], eax\n\n");
+    
+    fprintf(out, "    add eax, '0'\n");
+    fprintf(out, "    mov [return_digit], al\n\n");
 
     fprintf(out, "    mov rcx, [stdout_handle]\n");
     fprintf(out, "    lea rdx, [exit_message]\n");
@@ -145,6 +147,23 @@ int main(int argc, char** argv){
                 fprintf(out, "    ret\n");
                 break;
 
+            case LE_TOKEN_TYPE_KEYWORD_PRINTCHAR:
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_OPARENTHESIS);
+                leGenerateExpression(out, &parser, &scope);
+                fprintf(out, "    mov [char_buffer], al\n\n");
+
+                fprintf(out, "    mov rcx, [stdout_handle]\n");
+                fprintf(out, "    lea rdx, [char_buffer]\n");
+                fprintf(out, "    mov r8d, 1\n");
+                fprintf(out, "    lea r9, [written]\n");
+                fprintf(out, "    mov qword [rsp+20h], 0\n");
+                fprintf(out, "    call [WriteConsoleA]\n\n");
+
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_CPARENTHESIS);
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
+
+                break;
+
             default:
                 LE_ERROR_EXIT(3, "unexpected token");
                 break;
@@ -160,6 +179,7 @@ int main(int argc, char** argv){
 
     fprintf(out, "return_code dd 0\n");
     fprintf(out, "stdout_handle dq 0\n");
+    fprintf(out, "char_buffer db 0\n");
     fprintf(out, "written dd 0\n\n");
 
     fprintf(out, "section '.idata' import data readable writeable\n\n");

@@ -16,6 +16,9 @@
 //1-99 - numbers and number related things
 #define LE_TOKEN_TYPE_NUMBER 1
 
+#define LE_TOKEN_TYPE_OPARENTHESIS 94
+#define LE_TOKEN_TYPE_CPARENTHESIS 95
+
 #define LE_TOKEN_TYPE_PLUS 96
 #define LE_TOKEN_TYPE_MINUS 97
 
@@ -23,8 +26,12 @@
 #define LE_TOKEN_TYPE_SEMICOLON 99
 //100-inf - keywords
 #define LE_TOKEN_TYPE_KEYWORD_RETURN 100
+#define LE_TOKEN_TYPE_KEYWORD_PRINTCHAR 101
 
 //-keywords
+#define LE_KEYWORD_OPARENTHESIS  "("
+#define LE_KEYWORD_CPARENTHESIS ")"
+
 #define LE_KEYWORD_EQUALS "="
 #define LE_KEYWORD_PLUS "+"
 #define LE_KEYWORD_MINUS "-"
@@ -32,6 +39,7 @@
 #define LE_KEYWORD_SEMICOLON ";"
 
 #define LE_KEYWORD_RETURN "return"
+#define LE_KEYWORD_PRINTCHAR "printChar"
 
 //Struct declarations
 typedef struct{
@@ -102,7 +110,7 @@ int leGetNext(le_parser *parser, le_token *result){
     if(parser->currentToken < parser->numTokens){
         *result = parser->tokens[parser->currentToken];
         parser->currentToken++;
-        //printf("g-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
+        printf("g-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -122,7 +130,7 @@ int leGetAndExpectNext(le_parser *parser, le_token *result, int excpected){
 
     if(token.tokenType == excpected && token.ID != -1){
         *result = token;
-        //printf("ge-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
+        printf("ge-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -139,7 +147,7 @@ int leGetAndExpectNext(le_parser *parser, le_token *result, int excpected){
 int lePeekNext(le_parser *parser, le_token *result){
     if(parser->currentToken < parser->numTokens){
         *result = parser->tokens[parser->currentToken];
-        //printf("p-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
+        printf("p-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -158,17 +166,26 @@ void leAddToken(le_token tokens[], int* tokenCount, char tokenName[]){
     if(strcmp(tokenName, LE_KEYWORD_RETURN) == 0){
         tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_KEYWORD_RETURN;
     }
+    else if(strcmp(tokenName, LE_KEYWORD_PRINTCHAR) == 0){
+        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_KEYWORD_PRINTCHAR;    
+    }
     else if(strcmp(tokenName, LE_KEYWORD_SEMICOLON) == 0){
-         tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_SEMICOLON;
+        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_SEMICOLON;
     }
     else if(strcmp(tokenName, LE_KEYWORD_EQUALS) == 0){
-         tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_EQUALS;
+        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_EQUALS;
     }
     else if(strcmp(tokenName, LE_KEYWORD_PLUS) == 0){
-         tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_PLUS;
+        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_PLUS;
     }
     else if(strcmp(tokenName, LE_KEYWORD_MINUS) == 0){
-         tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_MINUS;
+        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_MINUS;
+    }
+    else if(strcmp(tokenName, LE_KEYWORD_OPARENTHESIS) == 0){
+        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_OPARENTHESIS;    
+    }
+    else if(strcmp(tokenName, LE_KEYWORD_CPARENTHESIS) == 0){
+        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_CPARENTHESIS;    
     }
     else if(isNumber(tokenName)){
         tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_NUMBER;
