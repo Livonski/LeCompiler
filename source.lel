@@ -1,16 +1,9 @@
-printChar ( 72 );
-printChar ( 101 );
-printChar ( 108 );
-printChar ( 108 );
-printChar ( 111 );
+printChar(65);
+printChar(32);
 
-printChar ( 87 );
-printChar ( 111 );
-printChar ( 114 );
-printChar ( 108 );
-printChar ( 100 );
-printChar ( 33 ); 
+a = 34;
+b = 35;
 
-printChar ( 10 ); 
+c = a + b;
 
-return 1;
+return c;

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 //Global consts
 #define MAX_TOKEN_COUNT 64
@@ -28,20 +29,13 @@
 #define LE_TOKEN_TYPE_KEYWORD_RETURN 100
 #define LE_TOKEN_TYPE_KEYWORD_PRINTCHAR 101
 
-//-keywords
-#define LE_KEYWORD_OPARENTHESIS  "("
-#define LE_KEYWORD_CPARENTHESIS ")"
-
-#define LE_KEYWORD_EQUALS "="
-#define LE_KEYWORD_PLUS "+"
-#define LE_KEYWORD_MINUS "-"
-
-#define LE_KEYWORD_SEMICOLON ";"
-
-#define LE_KEYWORD_RETURN "return"
-#define LE_KEYWORD_PRINTCHAR "printChar"
-
 //Struct declarations
+typedef struct{
+    int type;
+    char name[MAX_TOKEN_NAME_LENGTH];
+    bool separator;
+}le_keyword;
+
 typedef struct{
     int ID;
     char name[MAX_TOKEN_NAME_LENGTH];
@@ -58,12 +52,26 @@ typedef struct{
 }le_parser;
 
 //Forward declarations
-void leAddToken(le_token tokens[], int* tokenCount, char tokenName[]);
+void leAddToken(le_token tokens[], le_keyword keywords[], int* tokenCount, char tokenName[]);
 int isNumber(const char* str);
+int isSeparator(const char* separators, char c);
 
 void leParse(le_parser *parser, FILE *source){
     parser->currentToken = 0;
 
+    le_keyword keywords[] = {
+        [0] = {.type = LE_TOKEN_TYPE_PLUS, .name = "+"},
+        [1] = {.type = LE_TOKEN_TYPE_MINUS, .name = "-"},
+        [2] = {.type = LE_TOKEN_TYPE_EQUALS, .name = "="},
+        [3] = {.type = LE_TOKEN_TYPE_CPARENTHESIS, .name = ")"},
+        [4] = {.type = LE_TOKEN_TYPE_OPARENTHESIS, .name = "("},
+        [5] = {.type = LE_TOKEN_TYPE_SEMICOLON, .name = ";"},
+        [6] = {.type = LE_TOKEN_TYPE_KEYWORD_RETURN, .name = "return"},
+        [7] = {.type = LE_TOKEN_TYPE_KEYWORD_PRINTCHAR, .name = "printChar"},
+    };
+
+    char separators[] = { '+', '-', '=', '(', ')', ';'};
+    
     int c;
     int tokenCount = 0;
     int length = 0;
@@ -73,34 +81,52 @@ void leParse(le_parser *parser, FILE *source){
     printf("parsing file\n");
     while((c = fgetc(source)) != EOF)
     {
-        if(c != ' ' && c != '\n' && c != '\t' && c != ';'){
+        int separator = isSeparator(separators, c);
+
+        if((c == ' ' || c == '\n' || c == '\t') && length > 0){
+            leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
+
+            length = 0;
+            tokenName[0] = '\0';
+
+            if(tokenCount >= MAX_TOKEN_COUNT){
+                break;
+            }
+        }
+
+        if(!separator && c != ' ' && c != '\n' && c != '\t'){
             if(length < MAX_TOKEN_NAME_LENGTH - 1){
                 tokenName[length] = (char)c;
                 length++;
                 tokenName[length] = '\0';
             }
-        } else{
-            if(length > 0){
-                leAddToken(parser->tokens, &tokenCount, tokenName);
+        }
+        
+        if(separator){
+            leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
 
-                length = 0;
-                tokenName[0] = '\0';
+            length = 0;
+            tokenName[0] = '\0';
 
-                if(tokenCount >= MAX_TOKEN_COUNT){
-                    break;
-                }
+            if(tokenCount >= MAX_TOKEN_COUNT){
+                break;
             }
-            if(c == ';'){
-                leAddToken(parser->tokens, &tokenCount, LE_KEYWORD_SEMICOLON);
-                if(tokenCount >= MAX_TOKEN_COUNT){
-                    break;
-                }
+
+            tokenName[length] = (char)c;
+            length++;
+            tokenName[length] = '\0';
+
+            leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
+            if(tokenCount >= MAX_TOKEN_COUNT){
+                break;
             }
+            length = 0;
+            tokenName[0] = '\0';
         }
     }
 
     if(length > 0 && tokenCount < MAX_TOKEN_COUNT){
-        leAddToken(parser->tokens, &tokenCount, tokenName);
+        leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
     }
 
     parser->numTokens = tokenCount;
@@ -159,48 +185,45 @@ int lePeekNext(le_parser *parser, le_token *result){
     return 1;
 }
 
-void leAddToken(le_token tokens[], int* tokenCount, char tokenName[]){
+void leAddToken(le_token tokens[], le_keyword keywords[], int* tokenCount, char tokenName[]){
+    if(tokenName[0] == '\0'){
+        return;
+    }
+
     tokens[*tokenCount].ID = *tokenCount;
     strcpy(tokens[*tokenCount].name, tokenName);
+    tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_NONE;
+    tokens[*tokenCount].numberValue = 0;
 
-    if(strcmp(tokenName, LE_KEYWORD_RETURN) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_KEYWORD_RETURN;
+    for(int i = 0; i < 8; i++){
+        if(strcmp(tokenName, keywords[i].name) == 0){
+            tokens[*tokenCount].tokenType = keywords[i].type;
+            (*tokenCount)++;
+            return;
+        }
     }
-    else if(strcmp(tokenName, LE_KEYWORD_PRINTCHAR) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_KEYWORD_PRINTCHAR;    
-    }
-    else if(strcmp(tokenName, LE_KEYWORD_SEMICOLON) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_SEMICOLON;
-    }
-    else if(strcmp(tokenName, LE_KEYWORD_EQUALS) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_EQUALS;
-    }
-    else if(strcmp(tokenName, LE_KEYWORD_PLUS) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_PLUS;
-    }
-    else if(strcmp(tokenName, LE_KEYWORD_MINUS) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_MINUS;
-    }
-    else if(strcmp(tokenName, LE_KEYWORD_OPARENTHESIS) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_OPARENTHESIS;    
-    }
-    else if(strcmp(tokenName, LE_KEYWORD_CPARENTHESIS) == 0){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_CPARENTHESIS;    
-    }
-    else if(isNumber(tokenName)){
+
+    if(isNumber(tokenName)){
         tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_NUMBER;
         tokens[*tokenCount].numberValue = atoi(tokenName);
     }
-    else{
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_NONE;
-    }
-
     (*tokenCount)++;
 }
 
 int isNumber(const char* str){
+    if(str[0] == '\0'){
+        return 0;
+    }
+
     char* end;
     strtol(str, &end, 10);
 
     return *end == '\0'; 
+}
+
+int isSeparator(const char* separators, char c){
+    for(int i = 0; i < sizeof(separators) / sizeof(separators[0]); i++){
+        if (separators[i] == c) return 1;
+    }
+    return 0;
 }
