@@ -29,7 +29,19 @@ _start:
 
 le_main:
     sub rsp, 108h
-    mov eax, 65
+    mov eax, 1
+    mov dword [rsp + 20h], eax
+    mov eax, 1
+    mov dword [rsp + 24h], eax
+    mov eax, dword [rsp + 20h]
+    mov ebx, dword [rsp + 24h]
+    add eax, ebx
+    mov dword [rsp + 28h], eax
+    mov eax, dword [rsp + 24h]
+    mov dword [rsp + 20h], eax
+    mov eax, dword [rsp + 28h]
+    mov dword [rsp + 24h], eax
+    mov eax, dword [rsp + 28h]
     mov [char_buffer], al
 
     mov rcx, [stdout_handle]
@@ -49,15 +61,35 @@ le_main:
     mov qword [rsp+20h], 0
     call [WriteConsoleA]
 
-    mov eax, 34
-    mov dword [rsp + 20h], eax
-    mov eax, 35
-    mov dword [rsp + 24h], eax
     mov eax, dword [rsp + 20h]
     mov ebx, dword [rsp + 24h]
     add eax, ebx
     mov dword [rsp + 28h], eax
+    mov eax, dword [rsp + 24h]
+    mov dword [rsp + 20h], eax
     mov eax, dword [rsp + 28h]
+    mov dword [rsp + 24h], eax
+    mov eax, dword [rsp + 28h]
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 32
+    mov [char_buffer], al
+
+    mov rcx, [stdout_handle]
+    lea rdx, [char_buffer]
+    mov r8d, 1
+    lea r9, [written]
+    mov qword [rsp+20h], 0
+    call [WriteConsoleA]
+
+    mov eax, 0
     add rsp, 108h
     ret
 section '.data' data readable writeable

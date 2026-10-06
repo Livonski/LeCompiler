@@ -218,6 +218,7 @@ int main(int argc, char** argv){
     int result = system(fasmCall); 
     if (result != 0) { printf("Error: FASM failed with code %d\n", result); return 1; } 
     printf("Generated %s\n", exeFile); 
+
     return 0;
 }
 
@@ -226,8 +227,9 @@ int leAddVariable(le_scope *scope, const char *name){
         LE_ERROR_EXIT(10, "too many variables");
     }
 
-    if(leFindVariable(scope, name) != -1){
-        LE_ERROR_EXIT(11, "two wariables with same name");
+    int existingVariable = leFindVariable(scope, name);
+    if(existingVariable != -1){
+        return existingVariable;
     }
 
     int offset = scope->nextStackOffset;

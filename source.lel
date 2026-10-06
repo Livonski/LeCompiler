@@ -1,9 +1,16 @@
-printChar(65);
-printChar(32);
-
-a = 34;
-b = 35;
+a = 1;
+b = 1;
 
 c = a + b;
+a = b;
+b = c;
+printChar(c);
+printChar(32);
 
-return c;
+c = a + b;
+a = b;
+b = c;
+printChar(c);
+printChar(32);
+
+return 0;
