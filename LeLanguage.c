@@ -2,7 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+
 #include "LeParser.c"
+#include "DA.h"
 
 //Global consts
 #define MAX_VARIABLE_COUNT 32
@@ -30,8 +32,13 @@ typedef struct {
 } le_variable;
 
 typedef struct {
-    le_variable variables[MAX_VARIABLE_COUNT];
-    int variableCount;
+    le_variable *items;
+    int count;
+    int capacity;
+} le_variables;
+
+typedef struct {
+    le_variables variables;
     int nextStackOffset;
 } le_scope;
 
@@ -67,9 +74,9 @@ int main(int argc, char** argv){
     if(source == NULL) LE_ERROR_EXIT(2, "Error while opening file");
 
     //File parsing
-    le_parser parser;
+    le_parser parser = {0};
     leParse(&parser, source);
-    printf("parsed %d tokens\n", parser.numTokens);
+    printf("parsed %d tokens\n", parser.tokens.count);
     
     fclose(source);
 
@@ -118,8 +125,8 @@ int main(int argc, char** argv){
     fprintf(out, "le_main:\n"); 
     fprintf(out, "    sub rsp, 108h\n"); 
 
-    le_scope scope;
-    scope.variableCount = 0;
+    le_scope scope = {0};
+    scope.variables.count = 0;
     scope.nextStackOffset = 0x20;
 
     le_token curr;
@@ -223,7 +230,7 @@ int main(int argc, char** argv){
 }
 
 int leAddVariable(le_scope *scope, const char *name){
-    if(scope->variableCount >= MAX_VARIABLE_COUNT){
+    if(scope->variables.count >= MAX_VARIABLE_COUNT){
         LE_ERROR_EXIT(10, "too many variables");
     }
 
@@ -234,19 +241,20 @@ int leAddVariable(le_scope *scope, const char *name){
 
     int offset = scope->nextStackOffset;
 
-    strcpy(scope->variables[scope->variableCount].name, name);
-    scope->variables[scope->variableCount].stackOffset = offset;
+    le_variable var = {0};
+    strcpy(var.name, name);
+    var.stackOffset = offset;
+    da_append(scope->variables, var);
 
-    scope->variableCount++;
     scope->nextStackOffset +=4;
 
     return offset;
 }
 
 int leFindVariable(le_scope* scope, const char* name){
-    for(int i = 0; i < scope->variableCount; i++){
-        if(strcmp(scope->variables[i].name, name) == 0){
-            return scope->variables[i].stackOffset;
+    for(int i = 0; i < scope->variables.count; i++){
+        if(strcmp(scope->variables.items[i].name, name) == 0){
+            return scope->variables.items[i].stackOffset;
         }
     }
 

@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "DA.h"
+
 //Global consts
 #define MAX_TOKEN_COUNT 64
 #define MAX_TOKEN_NAME_LENGTH 32
@@ -45,14 +47,20 @@ typedef struct{
 }le_token;
 
 typedef struct{
-    le_token tokens[MAX_TOKEN_COUNT];
+    le_token *items;
+    int count;
+    int capacity;
+}le_tokens;
 
-    int numTokens;
+typedef struct{
+    le_tokens tokens;
+
+    //int numTokens;
     int currentToken;
 }le_parser;
 
 //Forward declarations
-void leAddToken(le_token tokens[], le_keyword keywords[], int* tokenCount, char tokenName[]);
+void leAddToken(le_tokens *tokens, le_keyword keywords[], char tokenName[]);
 int isNumber(const char* str);
 int isSeparator(const char* separators, char c);
 
@@ -73,7 +81,6 @@ void leParse(le_parser *parser, FILE *source){
     char separators[] = { '+', '-', '=', '(', ')', ';'};
     
     int c;
-    int tokenCount = 0;
     int length = 0;
 
     char tokenName[MAX_TOKEN_NAME_LENGTH];
@@ -84,14 +91,10 @@ void leParse(le_parser *parser, FILE *source){
         int separator = isSeparator(separators, c);
 
         if((c == ' ' || c == '\n' || c == '\t') && length > 0){
-            leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
+            leAddToken(&parser->tokens, keywords, tokenName);
 
             length = 0;
             tokenName[0] = '\0';
-
-            if(tokenCount >= MAX_TOKEN_COUNT){
-                break;
-            }
         }
 
         if(!separator && c != ' ' && c != '\n' && c != '\t'){
@@ -103,38 +106,30 @@ void leParse(le_parser *parser, FILE *source){
         }
         
         if(separator){
-            leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
+            leAddToken(&parser->tokens, keywords, tokenName);
 
             length = 0;
             tokenName[0] = '\0';
-
-            if(tokenCount >= MAX_TOKEN_COUNT){
-                break;
-            }
 
             tokenName[length] = (char)c;
             length++;
             tokenName[length] = '\0';
 
-            leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
-            if(tokenCount >= MAX_TOKEN_COUNT){
-                break;
-            }
+            leAddToken(&parser->tokens, keywords, tokenName);
             length = 0;
             tokenName[0] = '\0';
         }
     }
 
-    if(length > 0 && tokenCount < MAX_TOKEN_COUNT){
-        leAddToken(parser->tokens, keywords, &tokenCount, tokenName);
+    if(length > 0){
+        leAddToken(&parser->tokens, keywords, tokenName);
     }
-
-    parser->numTokens = tokenCount;
+    return;
 }
 
 int leGetNext(le_parser *parser, le_token *result){
-    if(parser->currentToken < parser->numTokens){
-        *result = parser->tokens[parser->currentToken];
+    if(parser->currentToken < parser->tokens.count){
+        *result = parser->tokens.items[parser->currentToken];
         parser->currentToken++;
         //printf("g-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
@@ -171,8 +166,8 @@ int leGetAndExpectNext(le_parser *parser, le_token *result, int excpected){
 }
 
 int lePeekNext(le_parser *parser, le_token *result){
-    if(parser->currentToken < parser->numTokens){
-        *result = parser->tokens[parser->currentToken];
+    if(parser->currentToken < parser->tokens.count){
+        *result = parser->tokens.items[parser->currentToken];
         //printf("p-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
@@ -185,29 +180,31 @@ int lePeekNext(le_parser *parser, le_token *result){
     return 1;
 }
 
-void leAddToken(le_token tokens[], le_keyword keywords[], int* tokenCount, char tokenName[]){
+void leAddToken(le_tokens *tokens, le_keyword keywords[], char tokenName[]){
     if(tokenName[0] == '\0'){
         return;
     }
 
-    tokens[*tokenCount].ID = *tokenCount;
-    strcpy(tokens[*tokenCount].name, tokenName);
-    tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_NONE;
-    tokens[*tokenCount].numberValue = 0;
+    le_token token;
+
+    token.ID = tokens->count;
+    strcpy(token.name, tokenName);
+    token.tokenType = LE_TOKEN_TYPE_NONE;
+    token.numberValue = 0;
 
     for(int i = 0; i < 8; i++){
         if(strcmp(tokenName, keywords[i].name) == 0){
-            tokens[*tokenCount].tokenType = keywords[i].type;
-            (*tokenCount)++;
+            token.tokenType = keywords[i].type;
+            da_appendP(tokens, token);
             return;
         }
     }
 
     if(isNumber(tokenName)){
-        tokens[*tokenCount].tokenType = LE_TOKEN_TYPE_NUMBER;
-        tokens[*tokenCount].numberValue = atoi(tokenName);
+        token.tokenType = LE_TOKEN_TYPE_NUMBER;
+        token.numberValue = atoi(tokenName);
     }
-    (*tokenCount)++;
+    da_appendP(tokens, token);
 }
 
 int isNumber(const char* str){

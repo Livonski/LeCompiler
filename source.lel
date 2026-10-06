@@ -13,4 +13,22 @@ b = c;
 printChar(c);
 printChar(32);
 
+c = a + b;
+a = b;
+b = c;
+printChar(c);
+printChar(32);
+
+c = a + b;
+a = b;
+b = c;
+printChar(c);
+printChar(32);
+
+c = a + b;
+a = b;
+b = c;
+printChar(c);
+printChar(32);
+
 return 0;
