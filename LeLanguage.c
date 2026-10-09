@@ -7,7 +7,6 @@
 #include "DA.h"
 
 //Global consts
-#define MAX_VARIABLE_COUNT 32
 #define MAX_VARIABLE_NAME_LENGTH 32
 
 //Useful macro
@@ -47,6 +46,8 @@ int leAddVariable(le_scope* scope, const char* name);
 int leFindVariable(le_scope* scope, const char* name);
 
 void leGenerateExpression(FILE *out, le_parser *parser, le_scope *scope);
+
+int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *scope);
 
 int main(int argc, char** argv){
 
@@ -132,7 +133,7 @@ int main(int argc, char** argv){
     le_token curr;
     le_token next;
     while(leGetNext(&parser, &curr) == 0){    
-        //printf("-Token[%d], tokenType[%d], name[%s]\n", curr.ID, curr.tokenType, curr.name);   
+        printf("-Token[%d], tokenType[%d], name[%s]\n", curr.ID, curr.tokenType, curr.name);   
         switch(curr.tokenType){
             case LE_TOKEN_TYPE_NONE:
                 char *varName = curr.name;
@@ -169,6 +170,35 @@ int main(int argc, char** argv){
                 LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_CPARENTHESIS);
                 LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_SEMICOLON);
 
+                break;
+            
+            case LE_TOKEN_TYPE_KEYWORD_REPEAT:
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_OPARENTHESIS);
+
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_NUMBER);
+                int repeatCount = next.numberValue;
+
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_CPARENTHESIS);
+                LE_EXPECT_NEXT(&parser, &next, LE_TOKEN_TYPE_OCURLYBRACE);
+                
+                static int loopID = 0;
+                int id = loopID++;
+
+                int counterOffset = scope.nextStackOffset;
+                scope.nextStackOffset += 4;
+                fprintf(out, "    mov dword [rsp + %Xh], %d\n", counterOffset, repeatCount);
+                fprintf(out, "repeat_%d:\n", id);
+                fprintf(out, "    cmp dword [rsp + %Xh], 0\n", counterOffset);
+                fprintf(out, "    jle repeat_end_%d\n", id);
+
+                int result = leAssembleCodeBlock(out, &parser, &scope);
+                if(result != 0){
+                    LE_ERROR_EXIT(6, "unclosed repeat block");
+                }
+
+                fprintf(out, "    dec dword [rsp + %Xh]\n", counterOffset);
+                fprintf(out, "    jmp repeat_%d\n", id);
+                fprintf(out, "repeat_end_%d:\n", id);
                 break;
 
             default:
@@ -229,11 +259,65 @@ int main(int argc, char** argv){
     return 0;
 }
 
-int leAddVariable(le_scope *scope, const char *name){
-    if(scope->variables.count >= MAX_VARIABLE_COUNT){
-        LE_ERROR_EXIT(10, "too many variables");
-    }
+int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *scope){
+    le_token curr;
+    le_token next;
 
+    while(leGetNext(parser, &curr) == 0){
+        printf("-Token[%d], tokenType[%d], name[%s]\n", curr.ID, curr.tokenType, curr.name);   
+        switch(curr.tokenType){
+            case LE_TOKEN_TYPE_CCURLYBRACE:
+                return 0;
+            case LE_TOKEN_TYPE_NONE:
+                char *varName = curr.name;
+
+                LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_EQUALS);
+                
+                leGenerateExpression(out, parser, scope);
+                
+                LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_SEMICOLON);
+
+                int offset = leAddVariable(scope, varName);
+                fprintf(out, "    mov dword [rsp + %Xh], eax\n", offset);
+            break;
+
+            case LE_TOKEN_TYPE_KEYWORD_RETURN:
+                leGenerateExpression(out, parser, scope);
+                LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_SEMICOLON);
+                fprintf(out, "    add rsp, 108h\n");
+                fprintf(out, "    ret\n");
+                break;
+
+            case LE_TOKEN_TYPE_KEYWORD_PRINTCHAR:
+                LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_OPARENTHESIS);
+                leGenerateExpression(out, parser, scope);
+                fprintf(out, "    mov [char_buffer], al\n\n");
+
+                fprintf(out, "    mov rcx, [stdout_handle]\n");
+                fprintf(out, "    lea rdx, [char_buffer]\n");
+                fprintf(out, "    mov r8d, 1\n");
+                fprintf(out, "    lea r9, [written]\n");
+                fprintf(out, "    mov qword [rsp+20h], 0\n");
+                fprintf(out, "    call [WriteConsoleA]\n\n");
+
+                LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_CPARENTHESIS);
+                LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_SEMICOLON);
+
+                break;
+            
+            case LE_TOKEN_TYPE_KEYWORD_REPEAT:
+                printf("TODO: repeat");
+                break;
+
+            default:
+                LE_ERROR_EXIT(3, "unexpected token");
+                break;
+        }
+    }
+    return 1;
+}
+
+int leAddVariable(le_scope *scope, const char *name){
     int existingVariable = leFindVariable(scope, name);
     if(existingVariable != -1){
         return existingVariable;

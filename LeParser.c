@@ -4,7 +4,6 @@
 #include "DA.h"
 
 //Global consts
-#define MAX_TOKEN_COUNT 64
 #define MAX_TOKEN_NAME_LENGTH 32
 
 //Token ID-s
@@ -19,6 +18,9 @@
 //1-99 - numbers and number related things
 #define LE_TOKEN_TYPE_NUMBER 1
 
+#define LE_TOKEN_TYPE_OCURLYBRACE 92
+#define LE_TOKEN_TYPE_CCURLYBRACE 93
+
 #define LE_TOKEN_TYPE_OPARENTHESIS 94
 #define LE_TOKEN_TYPE_CPARENTHESIS 95
 
@@ -30,6 +32,7 @@
 //100-inf - keywords
 #define LE_TOKEN_TYPE_KEYWORD_RETURN 100
 #define LE_TOKEN_TYPE_KEYWORD_PRINTCHAR 101
+#define LE_TOKEN_TYPE_KEYWORD_REPEAT 102
 
 //Struct declarations
 typedef struct{
@@ -71,14 +74,17 @@ void leParse(le_parser *parser, FILE *source){
         [0] = {.type = LE_TOKEN_TYPE_PLUS, .name = "+"},
         [1] = {.type = LE_TOKEN_TYPE_MINUS, .name = "-"},
         [2] = {.type = LE_TOKEN_TYPE_EQUALS, .name = "="},
-        [3] = {.type = LE_TOKEN_TYPE_CPARENTHESIS, .name = ")"},
-        [4] = {.type = LE_TOKEN_TYPE_OPARENTHESIS, .name = "("},
-        [5] = {.type = LE_TOKEN_TYPE_SEMICOLON, .name = ";"},
-        [6] = {.type = LE_TOKEN_TYPE_KEYWORD_RETURN, .name = "return"},
-        [7] = {.type = LE_TOKEN_TYPE_KEYWORD_PRINTCHAR, .name = "printChar"},
+        [3] = {.type = LE_TOKEN_TYPE_OCURLYBRACE, .name = "{"},
+        [4] = {.type = LE_TOKEN_TYPE_CCURLYBRACE, .name = "}"},
+        [5] = {.type = LE_TOKEN_TYPE_CPARENTHESIS, .name = ")"},
+        [6] = {.type = LE_TOKEN_TYPE_OPARENTHESIS, .name = "("},
+        [7] = {.type = LE_TOKEN_TYPE_SEMICOLON, .name = ";"},
+        [8] = {.type = LE_TOKEN_TYPE_KEYWORD_RETURN, .name = "return"},
+        [9] = {.type = LE_TOKEN_TYPE_KEYWORD_PRINTCHAR, .name = "printChar"},
+        [10] = {.type = LE_TOKEN_TYPE_KEYWORD_REPEAT, .name = "repeat"},
     };
 
-    char separators[] = { '+', '-', '=', '(', ')', ';'};
+    char separators[] = "+-=();{}";
     
     int c;
     int length = 0;
@@ -131,7 +137,7 @@ int leGetNext(le_parser *parser, le_token *result){
     if(parser->currentToken < parser->tokens.count){
         *result = parser->tokens.items[parser->currentToken];
         parser->currentToken++;
-        //printf("g-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
+        printf("g-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -151,7 +157,7 @@ int leGetAndExpectNext(le_parser *parser, le_token *result, int excpected){
 
     if(token.tokenType == excpected && token.ID != -1){
         *result = token;
-        //printf("ge-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
+        printf("ge-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -168,7 +174,7 @@ int leGetAndExpectNext(le_parser *parser, le_token *result, int excpected){
 int lePeekNext(le_parser *parser, le_token *result){
     if(parser->currentToken < parser->tokens.count){
         *result = parser->tokens.items[parser->currentToken];
-        //printf("p-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
+        printf("p-Token[%d], tokenType[%d], name[%s]\n", result->ID, result->tokenType, result->name);   
         return 0;
     }
 
@@ -192,7 +198,7 @@ void leAddToken(le_tokens *tokens, le_keyword keywords[], char tokenName[]){
     token.tokenType = LE_TOKEN_TYPE_NONE;
     token.numberValue = 0;
 
-    for(int i = 0; i < 8; i++){
+    for(int i = 0; i < 11; i++){
         if(strcmp(tokenName, keywords[i].name) == 0){
             token.tokenType = keywords[i].type;
             da_appendP(tokens, token);
@@ -219,7 +225,7 @@ int isNumber(const char* str){
 }
 
 int isSeparator(const char* separators, char c){
-    for(int i = 0; i < sizeof(separators) / sizeof(separators[0]); i++){
+    for(int i = 0; separators[i] != '\0'; i++){
         if (separators[i] == c) return 1;
     }
     return 0;
