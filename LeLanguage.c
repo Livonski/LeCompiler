@@ -36,18 +36,27 @@ typedef struct {
     int capacity;
 } le_variables;
 
-typedef struct {
+typedef struct le_scope{
+    struct le_scope *parent;
+
     le_variables variables;
+
+    int stackBase;
     int nextStackOffset;
+    int maxStackOffset;
 } le_scope;
 
 //Forward declarations
 int leAddVariable(le_scope* scope, const char* name);
 int leFindVariable(le_scope* scope, const char* name);
+int leResolveAssignment(le_scope *scope, const char *name);
 
 void leGenerateExpression(FILE *out, le_parser *parser, le_scope *scope);
 
 int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *scope);
+
+le_scope leCreateScope(le_scope *parent);
+void leDestroyScope(le_scope *scope);
 
 int main(int argc, char** argv){
 
@@ -126,7 +135,7 @@ int main(int argc, char** argv){
     fprintf(out, "le_main:\n"); 
     fprintf(out, "    sub rsp, 108h\n"); 
 
-    le_scope scope = {0};
+    le_scope scope = leCreateScope(NULL);
     scope.variables.count = 0;
     scope.nextStackOffset = 0x20;
 
@@ -259,7 +268,9 @@ int main(int argc, char** argv){
     return 0;
 }
 
-int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *scope){
+int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *parent){
+    le_scope scope = leCreateScope(parent);
+
     le_token curr;
     le_token next;
 
@@ -267,22 +278,24 @@ int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *scope){
         printf("-Token[%d], tokenType[%d], name[%s]\n", curr.ID, curr.tokenType, curr.name);   
         switch(curr.tokenType){
             case LE_TOKEN_TYPE_CCURLYBRACE:
+                leDestroyScope(&scope);
                 return 0;
             case LE_TOKEN_TYPE_NONE:
-                char *varName = curr.name;
+                char varName[MAX_VARIABLE_NAME_LENGTH];
+                strcpy(varName, curr.name);
 
                 LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_EQUALS);
                 
-                leGenerateExpression(out, parser, scope);
+                leGenerateExpression(out, parser, &scope);
                 
                 LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_SEMICOLON);
 
-                int offset = leAddVariable(scope, varName);
+                int offset = leResolveAssignment(&scope, varName);
                 fprintf(out, "    mov dword [rsp + %Xh], eax\n", offset);
             break;
 
             case LE_TOKEN_TYPE_KEYWORD_RETURN:
-                leGenerateExpression(out, parser, scope);
+                leGenerateExpression(out, parser, &scope);
                 LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_SEMICOLON);
                 fprintf(out, "    add rsp, 108h\n");
                 fprintf(out, "    ret\n");
@@ -290,7 +303,7 @@ int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *scope){
 
             case LE_TOKEN_TYPE_KEYWORD_PRINTCHAR:
                 LE_EXPECT_NEXT(parser, &next, LE_TOKEN_TYPE_OPARENTHESIS);
-                leGenerateExpression(out, parser, scope);
+                leGenerateExpression(out, parser, &scope);
                 fprintf(out, "    mov [char_buffer], al\n\n");
 
                 fprintf(out, "    mov rcx, [stdout_handle]\n");
@@ -314,31 +327,85 @@ int leAssembleCodeBlock(FILE *out, le_parser *parser, le_scope *scope){
                 break;
         }
     }
+    leDestroyScope(&scope);
     return 1;
 }
 
-int leAddVariable(le_scope *scope, const char *name){
-    int existingVariable = leFindVariable(scope, name);
-    if(existingVariable != -1){
-        return existingVariable;
+le_scope leCreateScope(le_scope *parent) {
+    le_scope scope = {0};
+
+    scope.parent = parent;
+
+    if(parent != NULL){
+        scope.stackBase = parent->nextStackOffset;
+        scope.nextStackOffset = scope.stackBase;
+    } else {
+        scope.stackBase = 0x20;
+        scope.nextStackOffset = 0x20;
     }
 
-    int offset = scope->nextStackOffset;
+    scope.maxStackOffset = scope.nextStackOffset;
+
+    return scope;
+}
+
+void leDestroyScope(le_scope *scope){
+    if(scope->parent != NULL) {
+        if(scope->maxStackOffset > scope->parent->maxStackOffset) {
+            scope->parent->maxStackOffset = scope->maxStackOffset;
+        }
+    }
+
+    free(scope->variables.items);
+    scope->variables.items = NULL;
+    scope->variables.count = 0;
+    scope->variables.capacity = 0;
+}
+
+int leAddVariable(le_scope *scope, const char *name){
+    for(int i = 0; i < scope->variables.count; i++) {
+        if(strcmp(scope->variables.items[i].name, name) == 0) {
+            return scope->variables.items[i].stackOffset;
+        }
+    }
+
+    if(strlen(name) >= MAX_VARIABLE_NAME_LENGTH) {
+        LE_ERROR_EXIT(30, "variable name too long");
+    }
 
     le_variable var = {0};
     strcpy(var.name, name);
-    var.stackOffset = offset;
+
+    var.stackOffset = scope->nextStackOffset;
+
     da_append(scope->variables, var);
 
-    scope->nextStackOffset +=4;
+    scope->nextStackOffset += 4;
 
-    return offset;
+    if(scope->nextStackOffset > scope->maxStackOffset) {
+        scope->maxStackOffset = scope->nextStackOffset;
+    }
+
+    return var.stackOffset;
+}
+
+int leResolveAssignment(le_scope *scope, const char *name) {
+    int offset = leFindVariable(scope, name);
+
+    if(offset >= 0) {
+        return offset;
+    }
+
+    return leAddVariable(scope, name);
 }
 
 int leFindVariable(le_scope* scope, const char* name){
-    for(int i = 0; i < scope->variables.count; i++){
-        if(strcmp(scope->variables.items[i].name, name) == 0){
-            return scope->variables.items[i].stackOffset;
+    for(le_scope *current = scope; current != NULL; current = current->parent){
+        for(int i = current->variables.count - 1; i >= 0; i--) {
+            le_variable *var = &current->variables.items[i];
+            if(strcmp(var->name, name) == 0) {
+                return var->stackOffset;
+            }
         }
     }
 

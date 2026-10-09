@@ -29,48 +29,33 @@ _start:
 
 le_main:
     sub rsp, 108h
-    mov eax, 1
+    mov eax, 10
     mov dword [rsp + 20h], eax
-    mov eax, 1
+    mov eax, 20
     mov dword [rsp + 24h], eax
-    mov eax, 0
-    mov dword [rsp + 28h], eax
-    mov dword [rsp + 2Ch], 3
+    mov dword [rsp + 28h], 3
 repeat_0:
-    cmp dword [rsp + 2Ch], 0
+    cmp dword [rsp + 28h], 0
     jle repeat_end_0
-    mov eax, dword [rsp + 20h]
-    mov ebx, dword [rsp + 24h]
-    add eax, ebx
-    mov dword [rsp + 28h], eax
-    mov eax, dword [rsp + 24h]
-    mov dword [rsp + 20h], eax
-    mov eax, dword [rsp + 28h]
-    mov dword [rsp + 24h], eax
-    mov eax, dword [rsp + 28h]
-    mov [char_buffer], al
-
-    mov rcx, [stdout_handle]
-    lea rdx, [char_buffer]
-    mov r8d, 1
-    lea r9, [written]
-    mov qword [rsp+20h], 0
-    call [WriteConsoleA]
-
-    mov eax, 32
-    mov [char_buffer], al
-
-    mov rcx, [stdout_handle]
-    lea rdx, [char_buffer]
-    mov r8d, 1
-    lea r9, [written]
-    mov qword [rsp+20h], 0
-    call [WriteConsoleA]
-
-    dec dword [rsp + 2Ch]
+    mov eax, 30
+    mov dword [rsp + 2Ch], eax
+    mov eax, 40
+    mov dword [rsp + 30h], eax
+    dec dword [rsp + 28h]
     jmp repeat_0
 repeat_end_0:
-    mov eax, dword [rsp + 28h]
+    mov dword [rsp + 2Ch], 5
+repeat_1:
+    cmp dword [rsp + 2Ch], 0
+    jle repeat_end_1
+    mov eax, 50
+    mov dword [rsp + 30h], eax
+    mov eax, 60
+    mov dword [rsp + 34h], eax
+    dec dword [rsp + 2Ch]
+    jmp repeat_1
+repeat_end_1:
+    mov eax, dword [rsp + 20h]
     add rsp, 108h
     ret
 section '.data' data readable writeable
